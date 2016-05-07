@@ -1,55 +1,68 @@
 ##android.widget.LinearLayout 源码分析
 
-###源码版本：Api 23（为更方便理解，本文采取重要代码上写注释加上一些简要分析的方法来说明）
-
-在Android里面，LinearLayout是我们最常用的布局之一，另外一个估计就是RelativeLayout。
-
-了解LinearLayout，就先从它和其他布局的异同开始，其实这些属性我们日常都有使用：
-
-- `orientation(int)`：作为LinearLayout必须使用的属性之一，支持`纵向排布`或者`水平排布`子控件
-
-- `weightSum(缺省值为1.0)/weight`：指定weight的总和/权重
-
-- `baselineAligned(boolean)`：基线对齐
-
-- `baselineAlignedChildIndex(int)`：该LinearLayout下的view以某个**继承TextView**的View的基线对齐
-
-- `measureWithLargestChild(boolean)`：当值为true，所有带权重属性的View都会使用最大View的最小尺寸
-
-- `divider(drawable in java/reference in xml)`**[api>11]**：如同您常在ListView使用一样，为LinearLayout添加分割线
-
-	+ 其附加属性为showDividers(middle|end|beginning|none):
-		* middle 在每一项中间添加分割线
-		* end 在整体的最后一项添加分割线
-		* beginning 在整体的最上方添加分割线
-		* none 无
-
-
-本篇主要也是针对以上几个LinearLayout独有属性进行分析，其他的因为基本是ViewGroup共有或者View共有的，所以就不会进行详细阐述。
+####声明.本项目源码基于Api 23，令因为本人能力有限，如果错误，欢迎督促指正。
 ***
-#Measure
+###1.谈谈LinearLayout
+Android的常用布局里，LinearLayout属于使用频率很高的布局。RelativeLayout也是，但相比于RelativeLayout每个子控件都需要给上ID以供另一个相关控件摆放位置来说，LinearLayout两个方向上的排列规则在明显垂直/水平排列情况下使用更加方便。
 
-对View的分析永远都脱离不了测量->布局->绘制。
+同时，出于性能上来说，一般而言功能越复杂的布局，性能也是越低的（不考虑嵌套的情况下）。
 
-而对于ViewGroup，由于通常不需要绘制（ps:setWillNotDraw方法或者给ViewGroup添加背景可以触发ViewGroup绘制），所以我们着重于测量和布局
+相比于RelativeLayout无论如何都是两次测量的情况下，LinearLayout只有子控件设置了weight属性时，才会有二次测量，其余情况都是一次。
 
-因此此处略过构造器以及一大堆的attrs属性获取/赋值，我们直接从Measure开始。
+另外，LinearLayout的高级用法除了weight，还有divider，baselineAligned等用法，虽然用的不常见就是了。
 
-首先我们看看**onMeasure**方法
+以下是LinearLayout相比于其他布局所拥有的特性：
 
-![](https://github.com/razerdp/AndroidSourceAnalysis/blob/master/LinearLayout/img/img_onMeasure.png)
+| 属性| 值类型| 描述|备注|
+| -----|:----:| :----:|:-----:|
+| orientation | int | 作为LinearLayout必须使用的属性之一，支持纵向排布或者水平排布子控件 ||
+| weightSum | float | 指定权重总和 |缺省值为1.0|
+| baselineAligned | boolean | 基线对齐||
+| baselineAlignedChildIndex| int|该LinearLayout下的view以某个**继承TextView**的View的基线对齐||
+| measureWithLargestChild| boolean | 当值为true，所有带权重属性的View都会使用最大View的最小尺寸||
+| divider（需要配合showDividers使用）| drawable in java/reference in xml| 如同您常在ListView使用一样，为LinearLayout添加分割线|**[api>11]**  同时如果是自己建立的drawable，请指定size |
 
-可以看到，measure里面根据不同的orientation会进行不同的测量。
+【注意】divider附加属性为showDividers(middle|end|beginning|none):
+ - middle 在每两项之间添加分割线
+ - end 在整体的最后一项添加分割线
+ - beginning 在整体的首项添加分割线
+ - none 无
 
-接下来我们看看垂直排布的测量（代码很长，超过300行，因此分段截取）。
 
-【如果您懒得打开SDK，可以到[GrepCode(api 22)](http://www.grepcode.com/file/repository.grepcode.com/java/ext/com.google.android/android/5.1.1_r1/android/widget/LinearLayout.java#LinearLayout.measureVertical%28int%2Cint%29) 查看】
+**本篇主要针对LinearLayout两个方向的测量、weight和divider进行分析，其余属性因为比较冷门，因此不会详说**
+***
+###2.使用方法
+对于LinearLayout的使用，相信您闭着眼睛都能写出来，因此这里就略过了。
+***
+###3.源码分析
 
-首先看看方法的第一部分，一些值的定义：
+源码分析阶段主要针对这几个地方：
+ - measure流程
+ - weight的计算
+ - divider的插入
+
+后两者的主要工作其实都是被包含在measure里面的，因此对于LinearLayout来说，最重要的，依然是measure.
+####3.1 measure
+
+在LinearLayout的onMeasure()里面，所有的测量都根据mOrientation这个int值来进行水平或者垂直的测量计算。
+
+我们都知道，java中int在初始化不分配值的时候，都是默认的0，因此如果我们不指定orientation，measure则会按照水平方向来测量【水平orientation=0/垂直orientation=1】
+
+接下来我们主要看看**measureVertical**方法，了解了垂直方向的测量之后，水平方向的也就不难理解了，为了篇幅，我们主要分析垂直方向的测量。
+
+measureVertical方法除去注释，大概200多行，因此我们分段分析。
+
+方法主要分为三大块：
+ - 一大堆变量
+ - 一个主要的for循环来不断测量子控件
+ - 其余参数影响以及根据是否有weight再次测量
+
+#####3.1.1
+**一大堆变量**
+为何这里要说说变量，因为这些变量都会极大的影响到后面的测量，同时也是十分容易混淆的，所以这里需要贴一下。
 
 ```java
-
-    void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
+void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
 
 		// mTotalLength作为LinearLayout成员变量，其主要目的是在测量的时候通过累加得到所有子控件的高度和（Vertical）或者宽度和（Horizontal）
         mTotalLength = 0;
@@ -92,171 +105,111 @@
 
         int largestChildHeight = Integer.MIN_VALUE;
 	}
-
 ```
+这里有很多变量和值，事实上，直到现在，我依然没有完全弄明白这些值的意义。
 
-这一大堆变量之所以要注释一遍，是因为这里是最容易混淆，从而导致后面的分析不明所以。
+在这一大堆变量里面，我们主要留意的是三个方面：
+ - mTotalLength：这个就是最终得到的整个LinearLayout的高度（子控件高度累加及自身padding）
+ - 三个跟width相关的变量
+ - weight相关的变量
 
-接下来就是我们比较熟悉的步骤了，一个大的for循环，各种主要操作都在这里了。
+***
+#####3.1.2 
+**测量**
+
+通过for循环不断的得到子控件然后根据自己的定义进行赋值，这就是LinearLayout测量里面最重要的一步。
+
+这里的代码比较长，去掉注释后有100行左右，因此这里采取重要地方注释结合文字描述来分析。
 
 ```java
-
-void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {   
-
-	...接上面那段
-
-	// 遍历所有子控件
-   	// See how tall everyone is. Also remember max width.
+void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
+		// ...接上面的一大堆变量
         for (int i = 0; i < count; ++i) {
+
             final View child = getVirtualChildAt(i);
 
             if (child == null) {
-				// 目前而言，measureNullChild()方法返回的永远是0，估计是谷歌留下来以后或许有补充的。
+				// 目前而言，measureNullChild()方法返回的永远是0，估计是设计者留下来以后或许有补充的。
                 mTotalLength += measureNullChild(i);
                 continue;
             }
-
-            if (child.getVisibility() == View.GONE) {
-			   // 同上，返回的都是0，事实上这里的意思应该是当前遍历到的View为Gone的时候，就跳过这个View，下一句的continue关键字也正是这个意思。
-			   // 忽略当前的View，这也就是为什么Gone的控件不占用布局资源的原因。
-               i += getChildrenSkipCount(child, i);
-               continue;
+           
+            if (child.getVisibility() == GONE) {
+			   // 同上，返回的都是0。
+			   // 事实上这里的意思应该是当前遍历到的View为Gone的时候，就跳过这个View，下一句的continue关键字也正是这个意思。
+               // 忽略当前的View，这也就是为什么Gone的控件不占用布局资源的原因。（毕竟根本没有分配空间）
+                i += getChildrenSkipCount(child, i);
+                continue;
             }
-			
-			// 判断divider是否在每个item前面绘制
-			// 关于这里，可以查看附录下的对应方法 
-			// 假如有divider，由于是测量纵向的，那么divider肯定是水平的（类似于ListView的divider）
-			// 因此总高度需要加上divider的高度
+
+			// 根据showDivider的值（before/middle/end）来决定遍历到当前子控件时，高度是否需要加上divider的高度
+			// 比如showDivider为before，那么只会在第0个子控件测量时加上divider高度，其余情况下都不加
             if (hasDividerBeforeChildAt(i)) {
-                mTotalLength += mDividerHeight;
+                mTotalLength += mDividerWidth;
             }
 
-            LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams) child.getLayoutParams();
-			
+            final LinearLayout.LayoutParams lp = (LinearLayout.LayoutParams)
+                    child.getLayoutParams();
 			// 得到每个子控件的LayoutParams后，累加权重和，后面用于跟weightSum相比较
             totalWeight += lp.weight;
             
 			// 我们都知道，测量模式有三种：
-			// * UNSPECIFIED：父控件对子控件无约束
-			// * Exactly：父控件对子控件强约束，子控件永远在父控件边界内，越界则裁剪。如果要记忆的话，可以记忆为有对应的具体数值或者是Match_parent
-			// * AT_Most：子控件为wrap_content的时候，测量值为AT_MOST。
-
-			/**下面的if/else就是用来测量子控件有weight同时高度为0的情况*/
+            // * UNSPECIFIED：父控件对子控件无约束
+            // * Exactly：父控件对子控件强约束，子控件永远在父控件边界内，越界则裁剪。如果要记忆的话，可以记忆为有对应的具体数值或者是Match_parent
+            // * AT_Most：子控件为wrap_content的时候，测量值为AT_MOST。
+			
+			// 下面的if/else分支都是跟weight相关
             if (heightMode == MeasureSpec.EXACTLY && lp.height == 0 && lp.weight > 0) {
-                // Optimization: don't bother measuring children who are going to use
-                // leftover space. These views will get measured again down below if
-                // there is any leftover space.
-
-				// 假如我们的LinearLayout的测量模式为Exactly，也就是对子控件有强约束
-				// 同时当前的子控件的height=0同时又有权重
-				// 那么暂时先给个标志位，当前的控件暂不测量（注意，这里不用continue跳出循环，因为该View并非Gone掉，这个标志可以理解为“稍后处理”）
-				// 虽然暂时不测量这个子控件，但是总高度还是会取子控件的top/bottom的margin与当前总高度的和。
-				// （当然，这个也是可以稍后再加上的，但在这里写上估计是设计者怕遗忘了或者为了让代码更容易读懂）
+				// 这个if里面需要满足三个条件：
+				// * LinearLayout的高度为match_parent(或者有具体值)
+				// * 子控件的高度为0
+				// * 子控件的weight>0
+				// 这其实就是我们通常情况下用weight时的写法
+				// 测量到这里的时候，会给个标志位，稍后再处理。此时会计算总高度
                 final int totalLength = mTotalLength;
                 mTotalLength = Math.max(totalLength, totalLength + lp.topMargin + lp.bottomMargin);
-				// 标志
                 skippedMeasure = true;
             } else {
-				// 这里的这个oldHeight也可以当作标志，后面会用到
+				// 到这个分支，则需要对不同的情况进行测量
                 int oldHeight = Integer.MIN_VALUE;
-				
-				// 假如我们的LinearLayout的测量模式不是Exactly 
-                if (lp.height == 0 && lp.weight > 0) {
-                    // heightMode is either UNSPECIFIED or AT_MOST, and this
-                    // child wanted to stretch to fill available space.
-                    // Translate that to WRAP_CONTENT so that it does not end up
-                    // with a height of 0
 
-					// 当子控件恰好又符合height=0同时拥有weight
+                if (lp.height == 0 && lp.weight > 0) {
+					// 满足这两个条件，意味着父类即LinearLayout是wrap_content，或者mode为UNSPECIFIED
+					// 那么此时将当前子控件的高度置为wrap_content
+					// 为何需要这么做，主要是因为当父类为wrap_content时，其大小实际上由子控件控制
+					// 我们都知道，自定义控件的时候，通常我们会指定测量模式为wrap_content时的默认大小
+					// 这里强制给定为wrap_content为的就是防止子控件高度为0.
                     oldHeight = 0;
-					// 则强制将当前子控件的高度设为WRAP_CONTENT
-					// 这里为何要将高度设为WRAP_CONTENT，其实在上面官方的注释中我们也可以看到
-					// 由于我们给定了View的高度为0，但又拥有weight，那么意味着
-					// 这个子控件是需要显示的，如果高度设置为0，那意味着这个weight有跟
-					// 没有是没啥两样
-					// 我们知道，自定义一个控件，通常在onMeasure的时候，都会针对
-					// WRAP_CONTENT测量模式给定一个值，这就是为了让系统可以针对这个模式
-					// 来进行恰当的布局。而不是说总是给0.所以将子控件的高度设为	
-					// WRAP_CONTENT，倒不如说是为了拿到默认的那个值
                     lp.height = LayoutParams.WRAP_CONTENT;
                 }
-
-                // Determine how big this child would like to be. If this or
-                // previous children have given a weight, then we allow it to
-                // use all available space (and we will shrink things later
-                // if needed).
-
-				// 接下来的这个方法，实际上就是measureChildWithMargins，ViewGroup对子控件测量的方法，这个方法这里不详细描述，毕竟ViewGroup基本都用这个方法
-				// 不过值得注意的是高度的测量，高度的测量里面是根据权重给定的
-				// 拥有权重的时候，高度直接给0，因为有权重的话，需要LinearLayout自己做处理
+				
+				/**【1】*/
+				// 下面这句虽然最终调用的是ViewGroup通用的同名方法，但传入的height值是跟平时不一样的
+				// 这里可以看到，传入的height是跟weight有关，关于这里，稍后的文字描述会着重阐述
                 measureChildBeforeLayout(
                        child, i, widthMeasureSpec, 0, heightMeasureSpec,
                        totalWeight == 0 ? mTotalLength : 0);
 
-				// 由于还在LinearLayout模式不为Exactly的else李main
-				// 所以oldHeight=0，然而当前子控件的height给定WRAP_CONTENT
-				// 那么意味着肯定符合这个if，这里又将当前子控件的height给0了
-				// 咋一看，这不多余么。实则不然，因为在这一条的上面，执行了一次measure语句
-				// 也就是说，子控件带着WRAP_CONTENT执行了measure，此时子控
-				// 的measureHeight不会是0，而是WRAP_CONTENT指定的那个默认值
-				// 接下来则是重新给0，开始计算权重并赋予高度。
+				// 重置子控件高度，然后进行精确赋值
                 if (oldHeight != Integer.MIN_VALUE) {
                    lp.height = oldHeight;
                 }
 
-				// 得到measure后的高度
                 final int childHeight = child.getMeasuredHeight();
                 final int totalLength = mTotalLength;
-				// 这时候的总高度则是加上子控件的高度，getNextLocationOffset这个方法目前
-				// 依然返回的是0，可能是设计者留下以后有需要的话补吧
-				// 另外，此时LinearLayout的测量模式不是Exactly，所以总高度没有加上子控件的
-				// 这也是为什么LinearLayout在WRAP_CONTENT的时候高度是子控件的高度和的原因
+				// getNextLocationOffset返回的永远是0，因此这里实际上是比较child测量前后的总高度，取大值。
                 mTotalLength = Math.max(totalLength, totalLength + childHeight + lp.topMargin +
                        lp.bottomMargin + getNextLocationOffset(child));
 
-				// useLargesChild与LinearLayout特有属性measureWithLargestChild相关
-				// 在遍历控件测量的过程中，不断的取控件高度的最大值并赋予给useLargesChild，然后稍后处理
                 if (useLargestChild) {
                     largestChildHeight = Math.max(childHeight, largestChildHeight);
                 }
             }
-        }
-}
 
-```
-写到这里，我们的这个遍历控件的大循环还没结束，但我们在这里总结一下，看看设计者对于权重是如何**初步**处理的。
-
-之所以说初步处理，是因为这时候还没有对子控件的高度进行赋值，此时子控件（拥有权重）的高度其实依然为0.（当然，期间有measure一次，但最后都再次赋值为0）
-
-上面的代码绕来绕去，其实改变的只有几个值：
-
-- mTotalLength：所有子控件的总高度
-- totalWeight：当前的权重和
-- 如果要算，也可以把useLargestChild算上，虽然这个参数我们用的很少
-
-总的来说，上面的代码就是根据当前LinearLayout的测量模式（准确的说是高度的测量模式），来进行子控件在不同情况下拥有weight时的预处理。当然，没有weight的话就只是很正常的测量而已，其调用就是`measureChildBeforeLayout`
-
-接下来我们继续看看这个大循环剩下的内容
-
-```java
-
-    // See how tall everyone is. Also remember max width.
-        for (int i = 0; i < count; ++i) {
-		    ...接上面
-
-            /**
-             * If applicable, compute the additional offset to the child's baseline
-             * we'll need later when asked {@link #getBaseline}.
-             */
-
-			
             if ((baselineChildIndex >= 0) && (baselineChildIndex == i + 1)) {
                mBaselineChildTop = mTotalLength;
             }
 
-            // if we are trying to use a child index for our baseline, the above
-            // book keeping only works if there are no children above it with
-            // weight.  fail fast to aid the developer.
             if (i < baselineChildIndex && lp.weight > 0) {
                 throw new RuntimeException("A child of LinearLayout with index "
                         + "less than mBaselineAlignedChildIndex has weight > 0, which "
@@ -265,11 +218,12 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
             }
 
             boolean matchWidthLocally = false;
+			
+			// 还记得我们变量里又说到过matchWidthLocally这个东东吗
+			// 当父类（LinearLayout）不是match_parent或者精确值的时候，但子控件却是一个match_parent
+			// 那么matchWidthLocally和matchWidth置为true
+			// 意味着这个控件将会占据父类（水平方向）的所有空间
             if (widthMode != MeasureSpec.EXACTLY && lp.width == LayoutParams.MATCH_PARENT) {
-                // The width of the linear layout will scale, and at least one
-                // child said it wanted to match our width. Set a flag
-                // indicating that we need to remeasure at least that view when
-                // we know our width.
                 matchWidth = true;
                 matchWidthLocally = true;
             }
@@ -280,11 +234,8 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
             childState = combineMeasuredStates(childState, child.getMeasuredState());
 
             allFillParent = allFillParent && lp.width == LayoutParams.MATCH_PARENT;
+			
             if (lp.weight > 0) {
-                /*
-                 * Widths of weighted Views are bogus if we end up
-                 * remeasuring, so keep them separate.
-                 */
                 weightedMaxWidth = Math.max(weightedMaxWidth,
                         matchWidthLocally ? margin : measuredWidth);
             } else {
@@ -294,47 +245,38 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
 
             i += getChildrenSkipCount(child, i);
         }
+	}
 ```
+在代码中我注释了一部分，其中最值得注意的是`measureChildBeforeLayout`方法。这个方法将会决定子控件可用的剩余分配空间。
 
+measureChildBeforeLayout最终调用的实际上是ViewGroup的measureChildWithMargins，不同的是，在传入高度值的时候（垂直测量情况下），会对weight进行一下判定
 
+假如当前子控件的weight加起来还是为0，则说明在当前子控件之前还没有遇到有weight的子控件，那么LinearLayout将会进行正常的测量，若之前遇到过有weight的子控件，那么LinearLayout传入0。
 
-对应跳转链接：
+那么measureChildWithMargins的最后一个参数，也就是LinearLayout在这里传入的这个高度值是用来干嘛的呢？
 
-- [hasDividerBeforeChildAt](#hasDividerBeforeChildAt)
-
-
-
-#附录 - LinearLayout下被调用方法的解析
-
-<span id="hasDividerBeforeChildAt">
+如果我们追溯下去，就会发现，这个函数最终其实是为了结合父类的MeasureSpec以及child自身的LayoutParams来对子控件测量。而最后传入的值，在子控件测量的时候被添加进去。
 ```java
+	
+	 protected void measureChildWithMargins(View child,
+            int parentWidthMeasureSpec, int widthUsed,
+            int parentHeightMeasureSpec, int heightUsed) {
+        final MarginLayoutParams lp = (MarginLayoutParams) child.getLayoutParams();
 
-	/**
-     * Determines where to position dividers between children.
-     *
-     * @param childIndex Index of child to check for preceding divider
-     * @return true if there should be a divider before the child at childIndex
-     * @hide Pending API consideration. Currently only used internally by the system.
-     */
-    protected boolean hasDividerBeforeChildAt(int childIndex) {
-        if (childIndex == getVirtualChildCount()) {
-            // Check whether the end divider should draw.
-            return (mShowDividers & SHOW_DIVIDER_END) != 0;
-        }
-        boolean allViewsAreGoneBefore = allViewsAreGoneBefore(childIndex);
-        if (allViewsAreGoneBefore) {
-            // This is the first view that's not gone, check if beginning divider is enabled.
-            return (mShowDividers & SHOW_DIVIDER_BEGINNING) != 0;
-        } else {
-            return (mShowDividers & SHOW_DIVIDER_MIDDLE) != 0;
-        }
+        final int childWidthMeasureSpec = getChildMeasureSpec(parentWidthMeasureSpec,
+                mPaddingLeft + mPaddingRight + lp.leftMargin + lp.rightMargin
+                        + widthUsed, lp.width);
+        final int childHeightMeasureSpec = getChildMeasureSpec(parentHeightMeasureSpec,
+                mPaddingTop + mPaddingBottom + lp.topMargin + lp.bottomMargin
+                        + heightUsed, lp.height);
+
+        child.measure(childWidthMeasureSpec, childHeightMeasureSpec);
     }
-
 ```
-</span>
+在官方的注释中，我们可以看到这么一句：
+>* @param heightUsed Extra space that has been used up by the parent vertically (possibly by other children of the parent)
 
-上面的代码不多，其主要控制点在于mShowDividers，mShowDividers之前也说过，它属于divider的附加属性，其值从None/Beginning/Middle/End 分别为0/1/2/3/4 而上面的代码的作用就是比较mShowDividers与这四个值，采取按位相与。在上面的代码我们可以看到有两个if分支。
+事实上，我们在代码中也可以很清晰的看到，在getChildMeasureSpec中，子控件需要把父控件的padding，自身的margin以及一个可调节的量三者一起测量出自身的大小。
 
- - 第一个if比较好容易理解，假如传进来的View，刚好是最后一个View，同时showDividers也正好是END,那么返回true，不满足任意一个，则返回false.
- 
- - 第二个if则涉及到一个方法 allViewsAreGoneBefore，这个方法只是一个很简单的子控件遍历，用来判断是否所有子控件都是Gone状态。如果都是Gone，那么只有绘制在所有View的前面，如果不全是Gone，那么才能够绘制在View与View的中间。（当然，前提是设置的showDivider模式匹配）
+那么假如在测量某个子控件之前，weight一直都是0，那么该控件在测量时，需要考虑在本控件之前的总高度，来根据剩余控件分配自身大小。而如果有weight，那么就不考虑已经被占用的控件，因为有了weight，该子控件的高度将会在后面重新赋值。
+
