@@ -38,7 +38,6 @@ Android的常用布局里，LinearLayout属于使用频率很高的布局。Rela
 源码分析阶段主要针对这几个地方：
  - measure流程
  - weight的计算
- - divider的插入
 
 后两者的主要工作其实都是被包含在measure里面的，因此对于LinearLayout来说，最重要的，依然是measure.
 ####3.1 measure
@@ -280,7 +279,8 @@ measureChildBeforeLayout最终调用的实际上是ViewGroup的measureChildWithM
 
 那么假如在测量某个子控件之前，weight一直都是0，那么该控件在测量时，需要考虑在本控件之前的总高度，来根据剩余控件分配自身大小。而如果有weight，那么就不考虑已经被占用的控件，因为有了weight，子控件的高度将会在后面重新赋值。
 ***
-#####3.1.3
+####3.2 weight
+#####3.2.1
 **weight的再次测量**
 
 在上面的代码中，LinearLayout做了针对没有weight的工作，在这里主要是确定自身的大小，然后再针对weight进行第二次测量来确定子控件的大小。
@@ -454,6 +454,10 @@ void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
         }
 }
 ```
+#####3.2.2 
+
+**weight的两种情况**
+
 这次我的注视比较少，主要是因为需要有一大段的文字来描述。
 
 在weight计算方面，我们可以清晰的看到，weight为何是针对剩余空间进行分配的原理了。
