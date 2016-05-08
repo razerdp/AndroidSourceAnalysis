@@ -1,4 +1,4 @@
-##android.widget.LinearLayout 源码分析
+##LinearLayout 源码分析
 
 #####声明.本项目源码基于Api 23
 ***
