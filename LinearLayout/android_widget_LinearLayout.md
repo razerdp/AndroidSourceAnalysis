@@ -42,7 +42,7 @@ Android的常用布局里，LinearLayout属于使用频率很高的布局。Rela
 后两者的主要工作其实都是被包含在measure里面的，因此对于LinearLayout来说，最重要的，依然是measure.
 ####3.1 measure
 
-在LinearLayout的onMeasure()里面，所有的测量都根据mOrientation这个int值来进行水平或者垂直的测量计算。
+在LinearLayout的`onMeasure()`里面，所有的测量都根据mOrientation这个int值来进行水平或者垂直的测量计算。
 
 我们都知道，java中int在初始化不分配值的时候，都是默认的0，因此如果我们不指定orientation，measure则会按照水平方向来测量【水平orientation=0/垂直orientation=1】
 
@@ -246,13 +246,13 @@ void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
         }
     }
 ```
-在代码中我注释了一部分，其中最值得注意的是`measureChildBeforeLayout`方法。这个方法将会决定子控件可用的剩余分配空间。
+在代码中我注释了一部分，其中最值得注意的是`measureChildBeforeLayout()`方法。这个方法将会决定子控件可用的剩余分配空间。
 
-measureChildBeforeLayout最终调用的实际上是ViewGroup的measureChildWithMargins，不同的是，在传入高度值的时候（垂直测量情况下），会对weight进行一下判定
+`measureChildBeforeLayout()`最终调用的实际上是ViewGroup的`measureChildWithMargins()`，不同的是，在传入高度值的时候（垂直测量情况下），会对weight进行一下判定
 
 假如当前子控件的weight加起来还是为0，则说明在当前子控件之前还没有遇到有weight的子控件，那么LinearLayout将会进行正常的测量，若之前遇到过有weight的子控件，那么LinearLayout传入0。
 
-那么measureChildWithMargins的最后一个参数，也就是LinearLayout在这里传入的这个高度值是用来干嘛的呢？
+那么`measureChildWithMargins()`的最后一个参数，也就是LinearLayout在这里传入的这个高度值是用来干嘛的呢？
 
 如果我们追溯下去，就会发现，这个函数最终其实是为了结合父类的MeasureSpec以及child自身的LayoutParams来对子控件测量。而最后传入的值，在子控件测量的时候被添加进去。
 ```java
@@ -275,7 +275,7 @@ measureChildBeforeLayout最终调用的实际上是ViewGroup的measureChildWithM
 在官方的注释中，我们可以看到这么一句：
 >* @param heightUsed Extra space that has been used up by the parent vertically (possibly by other children of the parent)
 
-事实上，我们在代码中也可以很清晰的看到，在getChildMeasureSpec中，子控件需要把父控件的padding，自身的margin以及一个可调节的量三者一起测量出自身的大小。
+事实上，我们在代码中也可以很清晰的看到，在`getChildMeasureSpec()`中，子控件需要把父控件的padding，自身的margin以及一个可调节的量三者一起测量出自身的大小。
 
 那么假如在测量某个子控件之前，weight一直都是0，那么该控件在测量时，需要考虑在本控件之前的总高度，来根据剩余控件分配自身大小。而如果有weight，那么就不考虑已经被占用的控件，因为有了weight，子控件的高度将会在后面重新赋值。
 ***
@@ -343,7 +343,7 @@ void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
 
 因为我们的布局除了子控件，还有自己本身的background，因此这里需要比较当前的子控件的总高度和背景的高度取大值。
 
-接下来就是判定大小，我们都知道测量的MeasureSpec实际上是一个32位的int，高两位是测量模式，剩下的就是大小，因此`heightSize = heightSizeAndState & MEASURED_SIZE_MASK;`作用就是用来得到大小的精确值（不含测量模式）
+接下来就是判定大小，我们都知道测量的MeasureSpec实际上是一个32位的int，高两位是测量模式，剩下的就是大小，因此```heightSize = heightSizeAndState & MEASURED_SIZE_MASK;```作用就是用来得到大小的精确值（不含测量模式）
 
 接下来我们看这个方法里面第二占比最大的代码：
 
@@ -478,17 +478,17 @@ else {}
 
 首先我们不管heightMode，也就是父类的测量模式，剩下一个判定条件就是lp.height，也就是子类的高度。
 
-既然有针对这个进行判定，那就是意味着肯定在此之前对child进行过measure，事实上，在这里我们一早就对这个地方进行过描述，这个方法正是`measureChildBeforeLayout`。
+既然有针对这个进行判定，那就是意味着肯定在此之前对child进行过measure，事实上，在这里我们一早就对这个地方进行过描述，这个方法正是`measureChildBeforeLayout()`。
 
-还记得我们的`measureChildBeforeLayout`执行的先行条件吗
+还记得我们的`measureChildBeforeLayout()`执行的先行条件吗
 
 YA，just u see，正是不满足（LinearLayout的测量模式非EXACTLY/child.height==0/child.weight/child.weight>0）之中的child.height==0
 
 因为除非我们指定height=0，否则match_parent是等于-1，wrap_content是等于-2.
 
-在执行`measureChildBeforeLayout`，由于我们的child的height=match_parent，因此此时可用空间实质上是整个LinearLayout，执行了`measureChildBeforeLayout`后，此时的mTotalLength是整个LinearLayout的大小
+在执行`measureChildBeforeLayout()`，由于我们的child的height=match_parent，因此此时可用空间实质上是整个LinearLayout，执行了`measureChildBeforeLayout()`后，此时的mTotalLength是整个LinearLayout的大小
 
-回到我们的例子，假设我们的LinearLayout高度为100，两个child的高度都是match_parent，那么执行了`measureChildBeforeLayout`后，我们两个子控件的高度都将会是这样：
+回到我们的例子，假设我们的LinearLayout高度为100，两个child的高度都是match_parent，那么执行了`measureChildBeforeLayout()`后，我们两个子控件的高度都将会是这样：
 >child_1.height=100
 child_2.height=100
 mTotalLength=100+100=200
@@ -518,11 +518,11 @@ mTotalLength=100+100=200
                     } 
 ```
 
-我们知道child.getMeasuredHeight()=100
+我们知道`child.getMeasuredHeight()=100`
 
 接着这里有一条`int childHeight = child.getMeasuredHeight() + share;`
 
-这意味着我们的childHeight=100+(-20)=80;
+这意味着我们的`childHeight=100+(-20)=80;`
 
 接下来就是走child.measure，并把childHeight传进去，因此最终反馈到界面上，我们就会发现，在两个match_parent的子控件中，weight的比是反转的。
 
@@ -530,7 +530,7 @@ mTotalLength=100+100=200
 
 ***
 ###4.小结
-在这里，我们花费了大篇幅讲解measureVertical的流程，事实上对于LinearLayout来说，其最大的特性也正是两个方向的排布以及weight的计算方式。
+在这里，我们花费了大篇幅讲解`measureVertical()`的流程，事实上对于LinearLayout来说，其最大的特性也正是两个方向的排布以及weight的计算方式。
 
 在这里我们不妨回过头看一下，其实我们会发现在测量过程中，设计者总是有意分开含有weight和不含有weight的测量方式，同时利用height跟0比较来更加的细分每一种情况。
 
