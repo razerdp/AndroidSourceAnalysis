@@ -488,19 +488,23 @@ YA，just u see，正是不满足（LinearLayout的测量模式非EXACTLY/child.
 在执行`measureChildBeforeLayout()`，由于我们的child的height=match_parent，因此此时可用空间实质上是整个LinearLayout，执行了`measureChildBeforeLayout()`后，此时的mTotalLength是整个LinearLayout的大小
 
 回到我们的例子，假设我们的LinearLayout高度为100，两个child的高度都是match_parent，那么执行了`measureChildBeforeLayout()`后，我们两个子控件的高度都将会是这样：
->child_1.height=100
-child_2.height=100
-mTotalLength=100+100=200
+>**child_1.height=100**
+
+>**child_2.height=100**
+
+>**mTotalLength=100+100=200**
 
 在一系列的for之后，执行到我们剩余空间：
 >int delta = heightSize - mTotalLength;
-(delta=100[linearlayout的实际高度]-200=-100)
+
+>**(delta=100[linearlayout的实际高度]-200=-100)**
 
 没错，你看到的的确是一个负数。
 
 接下来就是套用weight的计算公式：
 >share=(int) (childExtra * delta / weightSum)
-即：share=-100*(2/10)=-20;
+
+>即：**share=-100*(2/10)=-20;**
 
 然后走到我们所说的if/else里面
 ```java
@@ -517,11 +521,11 @@ mTotalLength=100+100=200
                     } 
 ```
 
-我们知道`child.getMeasuredHeight()=100`
+我们知道**`child.getMeasuredHeight()=100`**
 
 接着这里有一条`int childHeight = child.getMeasuredHeight() + share;`
 
-这意味着我们的`childHeight=100+(-20)=80;`
+这意味着我们的**`childHeight=100+(-20)=80;`**
 
 接下来就是走child.measure，并把childHeight传进去，因此最终反馈到界面上，我们就会发现，在两个match_parent的子控件中，weight的比是反转的。
 
