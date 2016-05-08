@@ -121,7 +121,7 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
 这里的代码比较长，去掉注释后有100行左右，因此这里采取重要地方注释结合文字描述来分析。
 
 ```java
-void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
+void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
         // ...接上面的一大堆变量
         for (int i = 0; i < count; ++i) {
 
@@ -287,7 +287,7 @@ void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
 
 我们接着看下面的代码：
 ```java
-void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
+void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
         //...接上面
         // 下面的这一段代码主要是为useLargestChild属性服务的，不在本文主要分析范围，略过
         if (mTotalLength > 0 && hasDividerBeforeChildAt(count)) {
@@ -348,7 +348,7 @@ void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
 接下来我们看这个方法里面第二占比最大的代码：
 
 ```java
-void measureHorizontal(int widthMeasureSpec, int heightMeasureSpec) {
+void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
 		//...接上面
 
 		//算出剩余空间，假如之前是skipp的话，那么几乎可以肯定是有剩余空间（同时有weight）的
