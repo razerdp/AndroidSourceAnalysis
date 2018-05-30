@@ -1,8 +1,8 @@
-##LinearLayout 源码分析
+## LinearLayout 源码分析
 
-#####声明.本项目源码基于Api 23
+##### 声明.本项目源码基于Api 23
 ***
-###1.谈谈LinearLayout
+### 1.谈谈LinearLayout
 Android的常用布局里，LinearLayout属于使用频率很高的布局。RelativeLayout也是，但相比于RelativeLayout每个子控件都需要给上ID以供另一个相关控件摆放位置来说，LinearLayout两个方向上的排列规则在明显垂直/水平排列情况下使用更加方便。
 
 同时，出于性能上来说，一般而言功能越复杂的布局，性能也是越低的（不考虑嵌套的情况下）。
@@ -30,17 +30,17 @@ Android的常用布局里，LinearLayout属于使用频率很高的布局。Rela
 
 **本篇主要针对LinearLayout垂直方向的测量、weight和divider进行分析，其余属性因为比较冷门，因此不会详说**
 ***
-###2.使用方法
+### 2.使用方法
 对于LinearLayout的使用，相信您闭着眼睛都能写出来，因此这里就略过了。
 ***
-###3.源码分析
+### 3.源码分析
 
 源码分析阶段主要针对这几个地方：
  - measure流程
  - weight的计算
 
 后两者的主要工作其实都是被包含在measure里面的，因此对于LinearLayout来说，最重要的，依然是measure.
-####3.1 measure
+#### 3.1 measure
 
 在LinearLayout的`onMeasure()`里面，所有的测量都根据mOrientation这个int值来进行水平或者垂直的测量计算。
 
@@ -55,7 +55,7 @@ measureVertical方法除去注释，大概200多行，因此我们分段分析�
  - 一个主要的for循环来不断测量子控件
  - 其余参数影响以及根据是否有weight再次测量
 
-#####3.1.1
+##### 3.1.1
 **一大堆变量**
 
 为何这里要说说变量，因为这些变量都会极大的影响到后面的测量，同时也是十分容易混淆的，所以这里需要贴一下。
@@ -113,7 +113,7 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
  - weight相关的变量
 
 ***
-#####3.1.2 
+##### 3.1.2 
 **测量**
 
 通过for循环不断的得到子控件然后根据自己的定义进行赋值，这就是LinearLayout测量里面最重要的一步。
@@ -279,8 +279,8 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
 
 那么假如在测量某个子控件之前，weight一直都是0，那么该控件在测量时，需要考虑在本控件之前的总高度，来根据剩余控件分配自身大小。而如果有weight，那么就不考虑已经被占用的控件，因为有了weight，子控件的高度将会在后面重新赋值。
 ***
-####3.2 weight
-#####3.2.1
+#### 3.2 weight
+##### 3.2.1
 **weight的再次测量**
 
 在上面的代码中，LinearLayout做了针对没有weight的工作，在这里主要是确定自身的大小，然后再针对weight进行第二次测量来确定子控件的大小。
@@ -454,7 +454,7 @@ void measureVertical(int widthMeasureSpec, int heightMeasureSpec) {
         }
 }
 ```
-#####3.2.2 
+##### 3.2.2 
 
 **weight的两种情况**
 
