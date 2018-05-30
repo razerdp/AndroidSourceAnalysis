@@ -521,18 +521,18 @@ YA，just as u see，正是不满足（LinearLayout的测量模式非EXACTLY/chi
                     } 
 ```
 
-我们知道**`child.getMeasuredHeight()=100`**
+我们知道 **`child.getMeasuredHeight()=100`**
 
-接着这里有一条`int childHeight = child.getMeasuredHeight() + share;`
+接着这里有一条 `int childHeight = child.getMeasuredHeight() + share;`
 
-这意味着我们的**`childHeight=100+(-20)=80;`**
+这意味着我们的 **`childHeight=100+(-20)=80;`**
 
 接下来就是走child.measure，并把childHeight传进去，因此最终反馈到界面上，我们就会发现，在两个match_parent的子控件中，weight的比是反转的。
 
 接下来没什么分析的，剩下的就是走layout流程了，对于layout方面，要讲的其实没什么东西，毕竟基本都是模板化的写法了。
 
 ***
-###4.小结
+### 4.小结
 在这里，我们花费了大篇幅讲解`measureVertical()`的流程，事实上对于LinearLayout来说，其最大的特性也正是两个方向的排布以及weight的计算方式。
 
 在这里我们不妨回过头看一下，其实我们会发现在测量过程中，设计者总是有意分开含有weight和不含有weight的测量方式，同时利用height跟0比较来更加的细分每一种情况。
