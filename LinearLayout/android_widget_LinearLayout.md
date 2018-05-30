@@ -481,7 +481,7 @@ else {}
 
 还记得我们的`measureChildBeforeLayout()`执行的先行条件吗
 
-YA，just u see，正是不满足（LinearLayout的测量模式非EXACTLY/child.height==0/child.weight/child.weight>0）之中的child.height==0
+YA，just as u see，正是不满足（LinearLayout的测量模式非EXACTLY/child.height==0/child.weight/child.weight>0）之中的child.height==0
 
 因为除非我们指定height=0，否则match_parent是等于-1，wrap_content是等于-2.
 
